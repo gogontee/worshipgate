@@ -1,7 +1,7 @@
 // next.config.js
 module.exports = {
   experimental: {
-    optimizePackageImports: ["lucide-react"],
+    optimizePackageImports: [], // remove "lucide-react"
   },
   async rewrites() {
     return [

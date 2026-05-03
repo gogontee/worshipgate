@@ -4,7 +4,9 @@ import { supabase } from "../lib/supabaseClient";
 import AudioCard from "../components/AudioCard";
 import MusicHeader from "../components/MusicHeader";
 import BottomTab from "../components/BottomTab";
-import {
+import * as Icons from "lucide-react";
+
+const {
   MapPin,
   Globe,
   Music,
@@ -16,7 +18,7 @@ import {
   Youtube,
   Share2,
   CheckCircle2,
-} from "lucide-react";
+} = Icons;
 
 export default function PublicProfile({ artist, music, debug }) {
   const [activeTab, setActiveTab] = useState("sounds");
@@ -55,7 +57,6 @@ export default function PublicProfile({ artist, music, debug }) {
     <>
       <MusicHeader />
       <main className="min-h-screen bg-black text-white pb-24">
-        {/* Hero banner */}
         <div className="relative h-48 md:h-64 w-full overflow-hidden">
           {artist.cover_image_url ? (
             <img
@@ -69,7 +70,6 @@ export default function PublicProfile({ artist, music, debug }) {
           <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent" />
         </div>
 
-        {/* Profile content */}
         <div className="max-w-4xl mx-auto px-4 -mt-16 md:-mt-20 relative z-10 text-center">
           <div className="relative inline-block mx-auto">
             <div className="w-24 h-24 md:w-28 md:h-28 rounded-full overflow-hidden border-4 border-amber-500 shadow-xl">
@@ -127,7 +127,6 @@ export default function PublicProfile({ artist, music, debug }) {
             )}
           </div>
 
-          {/* Tabs */}
           <div className="mt-8 border-b border-white/10 flex flex-wrap justify-center gap-4">
             {[
               { id: "sounds", label: "All Sounds" },
@@ -150,7 +149,6 @@ export default function PublicProfile({ artist, music, debug }) {
           </div>
         </div>
 
-        {/* Content sections */}
         <div className="max-w-7xl mx-auto px-4 mt-6">
           {activeTab === "sounds" && (
             <>
@@ -202,7 +200,6 @@ export default function PublicProfile({ artist, music, debug }) {
 export async function getServerSideProps({ params }) {
   const { slug } = params;
 
-  // Get artist
   const { data: artist } = await supabase
     .from("artists")
     .select("*")
@@ -213,10 +210,6 @@ export async function getServerSideProps({ params }) {
     return { props: { artist: null, music: [], debug: null } };
   }
 
-  console.log("Artist ID:", artist.id);
-  console.log("Artist slug:", artist.slug);
-
-  // Direct query: SELECT * FROM music WHERE artist_id = artist.id (no filters)
   const { data: music, error } = await supabase
     .from("music")
     .select("*")
@@ -228,18 +221,9 @@ export async function getServerSideProps({ params }) {
     return { props: { artist, music: [], debug: `Query error: ${error.message}` } };
   }
 
-  console.log("Raw music data:", music);
-  console.log("Number of rows:", music?.length);
-
-  // If still empty, try a different approach: get all music without artist filter
+  // If no music found, provide a debug message (optionally fetch all music to compare)
   if (!music || music.length === 0) {
-    const { data: allMusic, error: allError } = await supabase
-      .from("music")
-      .select("*")
-      .limit(5);
-    console.log("All music (first 5):", allMusic);
-    if (allError) console.error("All music error:", allError);
-
+    const { data: allMusic } = await supabase.from("music").select("*").limit(5);
     let debugMsg = `No music found for artist_id = ${artist.id}. `;
     if (allMusic && allMusic.length > 0) {
       debugMsg += `But there are ${allMusic.length} total music rows. The artist_id in those rows: ${allMusic.map(m => m.artist_id).join(", ")}. `;
@@ -250,11 +234,5 @@ export async function getServerSideProps({ params }) {
     return { props: { artist, music: [], debug: debugMsg } };
   }
 
-  return {
-    props: {
-      artist,
-      music: music || [],
-      debug: null,
-    },
-  };
+  return { props: { artist, music: music || [], debug: null } };
 }
