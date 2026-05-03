@@ -1,0 +1,12 @@
+.wave-animation .wave-bar {
+  animation: wave 0.5s ease-in-out infinite alternate;
+}
+
+@keyframes wave {
+  0% {
+    height: 4px;
+  }
+  100% {
+    height: 20px;
+  }
+}
