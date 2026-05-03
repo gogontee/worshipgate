@@ -43,9 +43,9 @@ export default function Navbar() {
 
   const navLinks = [
     { name: "Music", href: "/music" },
-    { name: "Videos", href: "/videos" },
-    { name: "About", href: "/about" },
-    { name: "Support", href: "/support" },
+    { name: "Videos", href: "/menatwork" },
+    { name: "About", href: "/menatwork" },
+    { name: "Support", href: "/menatwork" },
   ];
 
   const loggedOutActions = [

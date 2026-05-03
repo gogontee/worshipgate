@@ -40,9 +40,8 @@ export default function MusicHeader() {
   }, []);
 
   const navLinks = [
-    { name: "Premium", href: "/premium" },
-    { name: "Support", href: "/support" },
-    { name: "Download", href: "/download" },
+    { name: "Music", href: "/music" },
+    { name: "Videos", href: "/menatwork" },
   ];
 
   const handleLogout = async () => {
@@ -52,7 +51,6 @@ export default function MusicHeader() {
 
   const isLoggedIn = !!user;
 
-  // Show nothing while auth is loading (prevents flash of wrong UI)
   if (authLoading) {
     return null;
   }
@@ -112,10 +110,17 @@ export default function MusicHeader() {
             ))}
           </div>
           <div className="h-6 w-[1px] bg-white/20"></div>
-          <button className="flex items-center gap-1 text-white/70 hover:text-white transition text-sm font-medium">
+          <Link href="/support" className="text-white/70 hover:text-white transition text-sm font-semibold">
+            Support
+          </Link>
+          <Link href="/download" className="text-white/70 hover:text-white transition text-sm font-semibold">
+            Download
+          </Link>
+          <Link href="/menatwork" className="flex items-center gap-1 text-white/70 hover:text-white transition text-sm font-medium">
             <Download size={16} />
             Install App
-          </button>
+          </Link>
+
           {!isLoggedIn ? (
             <>
               <Link href="/auth/signup" className="text-white/70 hover:text-white transition text-sm font-semibold">
@@ -213,14 +218,21 @@ export default function MusicHeader() {
               <Link href="/" className="flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-white/5 transition text-sm" onClick={() => setIsMobileMenuOpen(false)}>
                 <Home size={18} /> Home
               </Link>
-              {navLinks.map((link) => (
-                <Link key={link.name} href={link.href} className="px-3 py-3 rounded-lg hover:bg-white/5 transition text-white/80 text-sm" onClick={() => setIsMobileMenuOpen(false)}>
-                  {link.name}
-                </Link>
-              ))}
-              <button className="flex items-center gap-2 px-3 py-3 rounded-lg hover:bg-white/5 transition text-white/80 text-sm">
+              <Link href="/music" className="px-3 py-3 rounded-lg hover:bg-white/5 transition text-white/80 text-sm" onClick={() => setIsMobileMenuOpen(false)}>
+                Music
+              </Link>
+              <Link href="/menatwork" className="px-3 py-3 rounded-lg hover:bg-white/5 transition text-white/80 text-sm" onClick={() => setIsMobileMenuOpen(false)}>
+                Videos
+              </Link>
+              <Link href="/menatwork" className="px-3 py-3 rounded-lg hover:bg-white/5 transition text-white/80 text-sm" onClick={() => setIsMobileMenuOpen(false)}>
+                Support
+              </Link>
+              <Link href="/menatwork" className="px-3 py-3 rounded-lg hover:bg-white/5 transition text-white/80 text-sm" onClick={() => setIsMobileMenuOpen(false)}>
+                Download
+              </Link>
+              <Link href="/menatwork." className="flex items-center gap-2 px-3 py-3 rounded-lg hover:bg-white/5 transition text-white/80 text-sm" onClick={() => setIsMobileMenuOpen(false)}>
                 <Download size={16} /> Install App
-              </button>
+              </Link>
             </div>
           </motion.div>
         )}
