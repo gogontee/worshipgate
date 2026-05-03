@@ -1,5 +1,6 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { useEffect, useState, useCallback, useRef } from "react";
+import Link from "next/link";
 
 export default function Hero() {
   const slides = [
@@ -131,7 +132,6 @@ export default function Hero() {
               transition={{ duration: 0.5, ease: "easeInOut" }}
               className="w-full"
             >
-              {/* Increased heading font size on mobile: was text-3xl, now text-5xl */}
               <h1 className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-black mb-3 sm:mb-5 leading-tight tracking-tight bg-gradient-to-r from-white via-amber-100 to-amber-300 bg-clip-text text-transparent drop-shadow-sm">
                 {slides[current].title}
               </h1>
@@ -140,14 +140,16 @@ export default function Hero() {
                 {slides[current].description}
               </p>
 
-              <button className="group relative bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 px-5 py-2 sm:px-7 sm:py-3 rounded-full text-sm sm:text-base font-semibold transition-all duration-300 shadow-lg shadow-amber-500/25 hover:shadow-amber-500/40 hover:scale-105 active:scale-95">
-                <span className="relative z-10 flex items-center gap-2">
-                  {slides[current].button}
-                  <svg className="w-4 h-4 sm:w-5 sm:h-5 transition-transform duration-300 group-hover:translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
-                </span>
-              </button>
+              <Link href="/music">
+                <button className="group relative bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 px-5 py-2 sm:px-7 sm:py-3 rounded-full text-sm sm:text-base font-semibold transition-all duration-300 shadow-lg shadow-amber-500/25 hover:shadow-amber-500/40 hover:scale-105 active:scale-95">
+                  <span className="relative z-10 flex items-center gap-2">
+                    {slides[current].button}
+                    <svg className="w-4 h-4 sm:w-5 sm:h-5 transition-transform duration-300 group-hover:translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </span>
+                </button>
+              </Link>
             </motion.div>
           </AnimatePresence>
         </div>
