@@ -1,37 +1,40 @@
-import { useState } from "react"
-import { supabase } from "../../lib/supabaseClient"
-import Link from "next/link"
-import AuthLayout from "../../components/AuthLayout"
+import { useState } from "react";
+import Link from "next/link";
+import AuthLayout from "../../components/AuthLayout";
+import { supabase } from "../../lib/supabaseClient";
 
 export default function ForgotPassword() {
-  const [email, setEmail] = useState("")
-  const [loading, setLoading] = useState(false)
-  const [message, setMessage] = useState(null)
-  const [error, setError] = useState(null)
+  const [email, setEmail] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState(null);
+  const [error, setError] = useState(null);
 
   const handleReset = async (e) => {
-    e.preventDefault()
-    setLoading(true)
-    setError(null)
-    setMessage(null)
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+    setMessage(null);
 
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${window.location.origin}/auth/update-password`,
-    })
+    });
 
     if (error) {
-      setError(error.message)
+      setError(error.message);
     } else {
-      setMessage("Password reset email sent. Check your inbox.")
+      setMessage("Password reset email sent. Check your inbox (and spam folder).");
+      setEmail("");
     }
-    setLoading(false)
-  }
+    setLoading(false);
+  };
 
   return (
     <AuthLayout title="Reset password">
       <form onSubmit={handleReset} className="space-y-5">
         <div>
-          <label className="block text-sm font-medium text-white/70 mb-1">Email address</label>
+          <label className="block text-sm font-medium text-white/70 mb-1">
+            Email address
+          </label>
           <input
             type="email"
             value={email}
@@ -57,5 +60,5 @@ export default function ForgotPassword() {
         </p>
       </form>
     </AuthLayout>
-  )
+  );
 }

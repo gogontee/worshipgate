@@ -1,4 +1,4 @@
-// pages/music/[id].js – with artist avatar below cover (outside cover container)
+// pages/music/[id].js
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/router";
 import { supabase } from "../../lib/supabaseClient";
@@ -31,9 +31,9 @@ export default function MusicDetail({ initialSong, initialArtist }) {
   const router = useRouter();
   const [song, setSong] = useState(initialSong);
   const [artist, setArtist] = useState(initialArtist);
-  const [playlist, setPlaylist] = useState([]);
+  const [playQueue, setPlayQueue] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [repeatMode, setRepeatMode] = useState("off");
+  const [repeatMode, setRepeatMode] = useState("off"); // off, one, all
   const [shuffle, setShuffle] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLoadingAudio, setIsLoadingAudio] = useState(false);
@@ -49,72 +49,52 @@ export default function MusicDetail({ initialSong, initialArtist }) {
   const waveInterval = useRef(null);
   const autoPlayedRef = useRef(false);
 
-  // Auto-play on page load
-  useEffect(() => {
-    if (!song || !audioRef.current) return;
-    if (autoPlayedRef.current) return;
-
-    const attemptPlay = () => {
-      if (audioRef.current && !isPlaying && !isLoadingAudio) {
-        autoPlayedRef.current = true;
-        handlePlayPause();
-      }
-    };
-    const timer = setTimeout(attemptPlay, 300);
-    return () => clearTimeout(timer);
-  }, [song]);
-
-  // Load playlist based on current song (artist & genre)
-  const loadPlaylist = async (currentSong) => {
-    if (!currentSong) return;
+  // ======================== PLAYLIST & QUEUE MANAGEMENT ========================
+  // Build base playlist (all songs from same artist, or fallback to current song)
+  const buildBasePlaylist = async (currentSong) => {
+    if (!currentSong) return [];
     let query = supabase.from("music").select("*").eq("status", "published");
-    if (shuffle) {
-      if (currentSong.genre) {
-        query = query.eq("genre", currentSong.genre);
-      } else if (currentSong.artist_id) {
-        query = query.eq("artist_id", currentSong.artist_id);
-      }
-    } else {
-      if (currentSong.artist_id) {
-        query = query.eq("artist_id", currentSong.artist_id);
-      }
+    if (currentSong.artist_id) {
+      query = query.eq("artist_id", currentSong.artist_id);
     }
     const { data, error } = await query.order("created_at", { ascending: false });
-    if (error) {
-      console.error("Failed to load playlist:", error);
-      return;
-    }
-    if (data && data.length > 0) {
-      setPlaylist(data);
-      const idx = data.findIndex((s) => s.id === currentSong.id);
-      setCurrentIndex(idx !== -1 ? idx : 0);
-    } else {
-      setPlaylist([currentSong]);
-      setCurrentIndex(0);
-    }
+    if (error || !data || data.length === 0) return [currentSong];
+    return data;
   };
 
-  // Fetch song data by ID (for navigation)
-  const fetchSongById = async (id) => {
-    const { data, error } = await supabase
-      .from("music")
-      .select("*")
-      .eq("id", id)
-      .maybeSingle();
-    if (error || !data) return null;
-    let artistData = null;
-    if (data.artist_id) {
-      const { data: a } = await supabase
-        .from("artists")
-        .select("id, name, slug, avatar_url")
-        .eq("id", data.artist_id)
-        .maybeSingle();
-      artistData = a;
+  // Shuffle an array (Fisher-Yates)
+  const shuffleArray = (arr) => {
+    const newArr = [...arr];
+    for (let i = newArr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [newArr[i], newArr[j]] = [newArr[j], newArr[i]];
     }
-    return { song: data, artist: artistData };
+    return newArr;
   };
 
-  // Change to a new song
+  // Load/refresh playlist based on current song and shuffle state
+  const loadPlaylist = async (currentSong) => {
+    if (!currentSong) return;
+    const base = await buildBasePlaylist(currentSong);
+    let queue = [...base];
+    if (shuffle) {
+      // Shuffle but keep current song at its current index if it exists
+      const currentId = currentSong.id;
+      const currentInQueue = queue.find(s => s.id === currentId);
+      if (currentInQueue) {
+        const others = queue.filter(s => s.id !== currentId);
+        const shuffledOthers = shuffleArray(others);
+        queue = [currentInQueue, ...shuffledOthers];
+      } else {
+        queue = shuffleArray(queue);
+      }
+    }
+    setPlayQueue(queue);
+    const newIndex = queue.findIndex(s => s.id === currentSong.id);
+    setCurrentIndex(newIndex !== -1 ? newIndex : 0);
+  };
+
+  // Change to a specific song (by object)
   const changeSong = async (newSong) => {
     if (!newSong) return;
     setHasIncrementedPlay(false);
@@ -129,8 +109,11 @@ export default function MusicDetail({ initialSong, initialArtist }) {
     } else {
       setArtist(null);
     }
+    // Update URL without reload (shallow)
     router.push(`/music/${newSong.id}`, undefined, { shallow: true });
+    // Reload playlist (preserves shuffle order)
     await loadPlaylist(newSong);
+    // If currently playing, restart audio
     if (isPlaying && audioRef.current) {
       audioRef.current.pause();
       audioRef.current.load();
@@ -138,67 +121,103 @@ export default function MusicDetail({ initialSong, initialArtist }) {
     }
   };
 
+  // Next song logic (respects repeat modes)
   const playNext = async () => {
-    if (playlist.length === 0) return;
+    if (playQueue.length === 0) return;
     let nextIndex = currentIndex + 1;
     if (repeatMode === "one") {
-      await changeSong(playlist[currentIndex]);
+      // Replay same song
+      await changeSong(playQueue[currentIndex]);
       return;
     }
-    if (nextIndex >= playlist.length) {
+    if (nextIndex >= playQueue.length) {
       if (repeatMode === "all") {
         nextIndex = 0;
       } else {
         setIsPlaying(false);
+        if (audioRef.current) audioRef.current.pause();
         return;
       }
     }
-    const nextSong = playlist[nextIndex];
+    const nextSong = playQueue[nextIndex];
     if (nextSong) {
       await changeSong(nextSong);
       setCurrentIndex(nextIndex);
     }
   };
 
+  // Previous song logic
   const playPrevious = async () => {
-    if (playlist.length === 0) return;
+    if (playQueue.length === 0) return;
     let prevIndex = currentIndex - 1;
     if (repeatMode === "one") {
-      await changeSong(playlist[currentIndex]);
+      await changeSong(playQueue[currentIndex]);
       return;
     }
     if (prevIndex < 0) {
       if (repeatMode === "all") {
-        prevIndex = playlist.length - 1;
+        prevIndex = playQueue.length - 1;
       } else {
         return;
       }
     }
-    const prevSong = playlist[prevIndex];
+    const prevSong = playQueue[prevIndex];
     if (prevSong) {
       await changeSong(prevSong);
       setCurrentIndex(prevIndex);
     }
   };
 
+  // Toggle repeat (off -> one -> all)
   const toggleRepeat = () => {
     if (repeatMode === "off") setRepeatMode("one");
     else if (repeatMode === "one") setRepeatMode("all");
     else setRepeatMode("off");
   };
 
+  // Toggle shuffle: rebuild playlist with shuffle on/off, keep current song as first
   const toggleShuffle = async () => {
     const newShuffle = !shuffle;
     setShuffle(newShuffle);
-    await loadPlaylist(song);
+    // Rebuild playlist from base (current song unchanged)
+    if (song) {
+      const base = await buildBasePlaylist(song);
+      let queue = [...base];
+      if (newShuffle) {
+        const others = queue.filter(s => s.id !== song.id);
+        const shuffledOthers = shuffleArray(others);
+        queue = [song, ...shuffledOthers];
+      } else {
+        // Revert to original order (by created_at desc)
+        queue = base;
+      }
+      setPlayQueue(queue);
+      const newIndex = queue.findIndex(s => s.id === song.id);
+      setCurrentIndex(newIndex !== -1 ? newIndex : 0);
+    }
   };
 
+  // ======================== AUDIO & PLAYBACK ========================
+  // Auto-play on page load
   useEffect(() => {
-    if (song) {
-      loadPlaylist(song);
-    }
+    if (!song || !audioRef.current) return;
+    if (autoPlayedRef.current) return;
+    const attemptPlay = () => {
+      if (audioRef.current && !isPlaying && !isLoadingAudio) {
+        autoPlayedRef.current = true;
+        handlePlayPause();
+      }
+    };
+    const timer = setTimeout(attemptPlay, 300);
+    return () => clearTimeout(timer);
   }, [song]);
 
+  // Load playlist when song changes (initial load)
+  useEffect(() => {
+    if (song) loadPlaylist(song);
+  }, [song]);
+
+  // Handle audio ended event
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
@@ -207,8 +226,9 @@ export default function MusicDetail({ initialSong, initialArtist }) {
     };
     audio.addEventListener("ended", handleEnded);
     return () => audio.removeEventListener("ended", handleEnded);
-  }, [playlist, currentIndex, repeatMode, shuffle, song]);
+  }, [playQueue, currentIndex, repeatMode, shuffle]);
 
+  // Increment play count (only once per song)
   const incrementPlayCount = async () => {
     if (!hasIncrementedPlay && song) {
       setHasIncrementedPlay(true);
@@ -218,26 +238,25 @@ export default function MusicDetail({ initialSong, initialArtist }) {
   };
 
   const handlePlayPause = () => {
-    if (audioRef.current) {
-      if (isPlaying) {
-        audioRef.current.pause();
-        setIsPlaying(false);
-      } else {
-        setIsLoadingAudio(true);
-        audioRef.current.load();
-        audioRef.current
-          .play()
-          .then(() => {
-            setIsPlaying(true);
-            setIsLoadingAudio(false);
-            incrementPlayCount();
-          })
-          .catch((err) => {
-            console.error("Play failed:", err);
-            setIsLoadingAudio(false);
-            alert("Unable to play audio. Please try again later.");
-          });
-      }
+    if (!audioRef.current) return;
+    if (isPlaying) {
+      audioRef.current.pause();
+      setIsPlaying(false);
+    } else {
+      setIsLoadingAudio(true);
+      audioRef.current.load();
+      audioRef.current
+        .play()
+        .then(() => {
+          setIsPlaying(true);
+          setIsLoadingAudio(false);
+          incrementPlayCount();
+        })
+        .catch((err) => {
+          console.error("Play failed:", err);
+          setIsLoadingAudio(false);
+          alert("Unable to play audio. Please try again later.");
+        });
     }
   };
 
@@ -263,6 +282,7 @@ export default function MusicDetail({ initialSong, initialArtist }) {
     return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
+  // Wave animation on play/pause
   useEffect(() => {
     if (isPlaying) {
       waveInterval.current = setInterval(() => {
@@ -277,6 +297,7 @@ export default function MusicDetail({ initialSong, initialArtist }) {
     return () => clearInterval(waveInterval.current);
   }, [isPlaying]);
 
+  // Share functions
   const incrementShareCount = async () => {
     if (!song) return;
     const { error } = await supabase.rpc("increment_shares", { music_id: song.id });
@@ -290,9 +311,8 @@ export default function MusicDetail({ initialSong, initialArtist }) {
     incrementShareCount();
   };
 
-  const handleDownloadClick = () => {
-    setShowDonationModal(true);
-  };
+  // Download & donation
+  const handleDownloadClick = () => setShowDonationModal(true);
 
   const incrementDownloadCount = async () => {
     if (!song) return;
@@ -368,9 +388,8 @@ export default function MusicDetail({ initialSong, initialArtist }) {
           </Link>
 
           <div className="flex gap-4 items-start">
-            {/* Left column: Cover + Artist Avatar (stacked) */}
+            {/* Left column: Cover + Artist Avatar */}
             <div className="flex flex-col items-center gap-2 w-28 md:w-32 flex-shrink-0">
-              {/* Cover image */}
               <div className="w-full aspect-square rounded-xl overflow-hidden shadow-lg border border-white/10">
                 {song.cover ? (
                   <img
@@ -384,7 +403,6 @@ export default function MusicDetail({ initialSong, initialArtist }) {
                   </div>
                 )}
               </div>
-              {/* Artist avatar circle – placed directly under the cover */}          {/* Artist avatar circle – placed directly under the cover */}
               {artist && (
                 <Link href={`/${artist.slug}`} className="block mt-2 mb-1">
                   <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-amber-500 bg-black shadow-md hover:scale-105 transition mx-auto">
@@ -404,7 +422,7 @@ export default function MusicDetail({ initialSong, initialArtist }) {
               )}
             </div>
 
-            {/* Right column: all song information */}
+            {/* Right column: song info + controls */}
             <div className="flex-1">
               <h1 className="text-xl md:text-2xl font-bold leading-tight">
                 {song.title}
@@ -530,9 +548,7 @@ export default function MusicDetail({ initialSong, initialArtist }) {
                   {[...Array(20)].map((_, i) => (
                     <div
                       key={i}
-                      className={`w-1 bg-amber-500 rounded-full transition-all duration-75 ${
-                        isPlaying ? "wave-bar" : "h-1"
-                      }`}
+                      className="w-1 bg-amber-500 rounded-full transition-all duration-75"
                       style={{
                         height: isPlaying ? `${Math.random() * 20 + 4}px` : "4px",
                       }}

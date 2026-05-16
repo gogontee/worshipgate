@@ -1,55 +1,73 @@
-import { useState, useEffect } from "react"
-import { supabase } from "../../lib/supabaseClient"
-import { useRouter } from "next/router"
-import AuthLayout from "../../components/AuthLayout"
+import { useState, useEffect } from "react";
+import { useRouter } from "next/router";
+import AuthLayout from "../../components/AuthLayout";
+import { supabase } from "../../lib/supabaseClient";
 
 export default function UpdatePassword() {
-  const [password, setPassword] = useState("")
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState(null)
-  const [success, setSuccess] = useState(false)
-  const router = useRouter()
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [success, setSuccess] = useState(false);
+  const router = useRouter();
 
-  // Ensure user has a valid session (the reset link sets a session)
   useEffect(() => {
-    const checkSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) {
-        router.push("/auth/login")
+    // Supabase sends the access_token in the URL hash
+    const handleHash = async () => {
+      const hashParams = new URLSearchParams(window.location.hash.substring(1));
+      const accessToken = hashParams.get("access_token");
+      if (accessToken) {
+        const { error } = await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: "",
+        });
+        if (error) {
+          console.error("Error setting session:", error);
+          setError("Invalid reset link. Please request a new one.");
+        }
+      } else {
+        // If no token, check if already logged in (should not happen)
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) {
+          router.push("/auth/login");
+        }
       }
-    }
-    checkSession()
-  }, [router])
+    };
+    handleHash();
+  }, [router]);
 
   const handleUpdate = async (e) => {
-    e.preventDefault()
-    setLoading(true)
-    setError(null)
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
 
-    const { error } = await supabase.auth.updateUser({ password })
+    const { error } = await supabase.auth.updateUser({ password });
 
     if (error) {
-      setError(error.message)
+      setError(error.message);
     } else {
-      setSuccess(true)
-      setTimeout(() => router.push("/auth/login"), 2000)
+      setSuccess(true);
+      setTimeout(() => router.push("/auth/login"), 2000);
     }
-    setLoading(false)
-  }
+    setLoading(false);
+  };
 
   if (success) {
     return (
       <AuthLayout title="Password updated">
-        <p className="text-white/80 text-center">Your password has been changed. Redirecting to login...</p>
+        <p className="text-white/80 text-center">
+          Your password has been changed. Redirecting to login...
+        </p>
       </AuthLayout>
-    )
+    );
   }
 
   return (
     <AuthLayout title="Create new password">
       <form onSubmit={handleUpdate} className="space-y-5">
         <div>
-          <label className="block text-sm font-medium text-white/70 mb-1">New password</label>
+          <label className="block text-sm font-medium text-white/70 mb-1">
+            New password
+          </label>
           <input
             type="password"
             value={password}
@@ -70,5 +88,5 @@ export default function UpdatePassword() {
         </button>
       </form>
     </AuthLayout>
-  )
+  );
 }
