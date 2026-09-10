@@ -13,7 +13,7 @@ const links = [
     description: 'Listen on Boomplay',
     url: 'https://www.boomplay.com/albums/EQWzmdUOKjt6pNc_JZxqkOfJ',
     logo: '/boomplaylogo.png',
-    color: 'hover:border-orange-500 hover:bg-orange-500/10',
+    color: 'hover:border-blue-300 hover:bg-orange-500/10',
   },
   {
     name: 'Amazon Music',
